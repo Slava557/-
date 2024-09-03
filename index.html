@@ -3,13 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Уголки</title>
+    <title>Ellias Game</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Игра Уголки</h1>
-    <div id="board"></div>
-    <div id="status"></div>
+    <div class="container">
+        <h1>Ellias Game</h1>
+        <div id="menu">
+            <p>Choose difficulty:</p>
+            <button class="tg-button" onclick="startGame('easy')">Easy</button>
+            <button class="tg-button" onclick="startGame('hard')">Hard</button>
+        </div>
+        <div id="game" class="hidden">
+            <h2 id="word-display">Word</h2>
+            <p id="timer">Time: 60 sec</p>
+            <p>Score: <span id="score">0</span></p>
+            <button class="tg-button" onclick="addPoint()">Add Point</button>
+            <button class="tg-button" onclick="nextWord()">Skip</button>
+            <button class="tg-button" onclick="restartGame()">Restart</button>
+        </div>
+    </div>
     <script src="script.js"></script>
 </body>
 </html>
