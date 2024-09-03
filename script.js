@@ -1,181 +1,67 @@
-const boardElement = document.getElementById("board");
-const statusElement = document.getElementById("status");
-let board = [];
-let selectedPiece = null;
-let isAITurn = false;
+let score = 0;
+let currentWords = [];
+let currentIndex = 0;
+let timer;
+let timeRemaining = 60;
 
-// Начальное состояние доски
-const initialBoard = [
-    [1, 1, 1, null, null, null, 2, 2],
-    [1, 1, 1, null, null, null, 2, 2],
-    [1, 1, 1, null, null, null, 2, 2],
-    [null, null, null, null, null, null, null, null],
-    [null, null, null, null, null, null, null, null],
-    [2, 2, 2, null, null, null, 1, 1],
-    [2, 2, 2, null, null, null, 1, 1],
-    [2, 2, 2, null, null, null, 1, 1]
-];
+async function fetchWords(difficulty) {
+    const url = `https://api.datamuse.com/words?ml=${difficulty === 'easy' ? 'cat' : 'philosophy'}&max=1000`;
 
-// Объект с состоянием игры
-class GameState {
-    constructor(board, isAITurn) {
-        this.board = board;
-        this.isAITurn = isAITurn;
-    }
+    let response = await fetch(url);
+    let data = await response.json();
 
-    getAllPossibleMoves() {
-        let moves = [];
-        for (let row = 0; row < 8; row++) {
-            for (let col = 0; col < 8; col++) {
-                if ((this.isAITurn && this.board[row][col] === 2) || (!this.isAITurn && this.board[row][col] === 1)) {
-                    moves = moves.concat(this.getMovesForPiece(row, col));
-                }
-            }
-        }
-        return moves;
-    }
-
-    getMovesForPiece(row, col) {
-        const directions = [
-            [-1, -1], [-1, 0], [-1, 1],
-            [0, -1],         [0, 1],
-            [1, -1], [1, 0], [1, 1]
-        ];
-
-        let moves = [];
-        for (let [dr, dc] of directions) {
-            let newRow = row + dr;
-            let newCol = col + dc;
-            if (this.isValidMove(row, col, newRow, newCol)) {
-                moves.push({ from: { row, col }, to: { row: newRow, col: newCol } });
-            }
-        }
-        return moves;
-    }
-
-    isValidMove(fromRow, fromCol, toRow, toCol) {
-        if (toRow < 0 || toRow >= 8 || toCol < 0 || toCol >= 8) return false;
-        if (this.board[toRow][toCol] !== null) return false;
-        const rowDiff = Math.abs(toRow - fromRow);
-        const colDiff = Math.abs(toCol - fromCol);
-        return rowDiff <= 1 && colDiff <= 1;
-    }
-
-    applyMove(move) {
-        let newBoard = JSON.parse(JSON.stringify(this.board));
-        newBoard[move.to.row][move.to.col] = newBoard[move.from.row][move.from.col];
-        newBoard[move.from.row][move.from.col] = null;
-        return new GameState(newBoard, !this.isAITurn);
-    }
-
-    isGameOver() {
-        const player1Goal = [
-            [7, 7], [7, 6], [7, 5],
-            [6, 7], [6, 6], [6, 5],
-            [5, 7], [5, 6], [5, 5]
-        ];
-        const player2Goal = [
-            [0, 0], [0, 1], [0, 2],
-            [1, 0], [1, 1], [1, 2],
-            [2, 0], [2, 1], [2, 2]
-        ];
-
-        let player1Win = player1Goal.every(([r, c]) => this.board[r][c] === 1);
-        let player2Win = player2Goal.every(([r, c]) => this.board[r][c] === 2);
-
-        return player1Win || player2Win;
-    }
+    return data.map(item => item.word);
 }
 
-// Функция оценки состояния доски
-function evaluateBoard(gameState) {
-    let score = 0;
-    const player1Goal = [7, 7];
-    const player2Goal = [0, 0];
-
-    for (let row = 0; row < 8; row++) {
-        for (let col = 0; col < 8; col++) {
-            if (gameState.board[row][col] === 1) {
-                score -= Math.abs(player1Goal[0] - row) + Math.abs(player1Goal[1] - col);
-            } else if (gameState.board[row][col] === 2) {
-                score += Math.abs(player2Goal[0] - row) + Math.abs(player2Goal[1] - col);
-            }
-        }
-    }
-    return score;
-}
-
-// Алгоритм Минимакс с альфа-бета отсечением
-function minimax(gameState, depth, alpha, beta, maximizingPlayer) {
-    if (depth === 0 || gameState.isGameOver()) {
-        return evaluateBoard(gameState);
-    }
-
-    const moves = gameState.getAllPossibleMoves();
-
-    if (maximizingPlayer) {
-        let maxEval = -Infinity;
-        for (let move of moves) {
-            const newGameState = gameState.applyMove(move);
-            const eval = minimax(newGameState, depth - 1, alpha, beta, false);
-            maxEval = Math.max(maxEval, eval);
-            alpha = Math.max(alpha, eval);
-            if (beta <= alpha) {
-                break; // Beta отсечение
-            }
-        }
-        return maxEval;
+function updateTimer() {
+    if (timeRemaining > 0) {
+        timeRemaining -= 1;
+        document.getElementById('timer').innerText = `Time: ${timeRemaining} sec`;
     } else {
-        let minEval = Infinity;
-        for (let move of moves) {
-            const newGameState = gameState.applyMove(move);
-            const eval = minimax(newGameState, depth - 1, alpha, beta, true);
-            minEval = Math.min(minEval, eval);
-            beta = Math.min(beta, eval);
-            if (beta <= alpha) {
-                break; // Alpha отсечение
-            }
-        }
-        return minEval;
+        clearInterval(timer);
+        alert('Time is up! The round is over.');
+        document.getElementById('word-display').innerText = 'Game Over';
     }
 }
 
-// Поиск лучшего хода для ИИ
-function findBestMove(gameState, depth) {
-    let bestMove = null;
-    let bestValue = -Infinity;
-    const moves = gameState.getAllPossibleMoves();
+async function startGame(difficulty) {
+    score = 0;
+    currentIndex = 0;
+    timeRemaining = 60;
 
-    for (let move of moves) {
-        const newGameState = gameState.applyMove(move);
-        const moveValue = minimax(newGameState, depth - 1, -Infinity, Infinity, false);
-        if (moveValue > bestValue) {
-            bestValue = moveValue;
-            bestMove = move;
-        }
+    currentWords = await fetchWords(difficulty);
+
+    document.getElementById('score').innerText = score;
+    document.getElementById('menu').classList.add('hidden');
+    document.getElementById('game').classList.remove('hidden');
+    document.getElementById('timer').innerText = `Time: ${timeRemaining} sec`;
+
+    timer = setInterval(updateTimer, 1000);
+
+    nextWord();
+}
+
+function nextWord() {
+    if (currentIndex < currentWords.length && timeRemaining > 0) {
+        document.getElementById('word-display').innerText = currentWords[currentIndex];
+        currentIndex++;
+    } else if (timeRemaining <= 0) {
+        document.getElementById('word-display').innerText = 'Game Over';
+    } else {
+        alert('No more words available!');
     }
-
-    return bestMove;
 }
 
-// Инициализация доски
-function initBoard() {
-    board = initialBoard.map(row => row.slice());
-    renderBoard();
-    statusElement.textContent = "Ваш ход!";
+function addPoint() {
+    if (timeRemaining > 0) {
+        score += 1;
+        document.getElementById('score').innerText = score;
+        nextWord();
+    }
 }
 
-// Отображение доски
-function renderBoard() {
-    boardElement.innerHTML = '';
-    for (let row = 0; row < 8; row++) {
-        for (let col = 0; col < 8; col++) {
-            const cell = document.createElement("div");
-            cell.className = "cell";
-            if (board[row][col] === 1) {
-                const piece = document.createElement("div");
-                piece.className = "piece";
-                cell.appendChild(piece);
-            } else if (board[row][col] === 2) {
-                const piece = document.createElement("div");
-                piece.className
+function restartGame() {
+    clearInterval(timer);
+    document.getElementById('game').classList.add('hidden');
+    document.getElementById('menu').classList.remove('hidden');
+}
