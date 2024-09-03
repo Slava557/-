@@ -13,6 +13,14 @@ async function fetchWords(difficulty) {
     return data.map(item => item.word);
 }
 
+// Функция для перемешивания массива
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+}
+
 function updateTimer() {
     if (timeRemaining > 0) {
         timeRemaining -= 1;
@@ -30,6 +38,7 @@ async function startGame(difficulty) {
     timeRemaining = 60;
 
     currentWords = await fetchWords(difficulty);
+    shuffleArray(currentWords); // Перемешиваем слова
 
     document.getElementById('score').innerText = score;
     document.getElementById('menu').classList.add('hidden');
